@@ -46,7 +46,10 @@ def translate():
 			*[client.get_url.async(x) for x in urls]
 		)
 	)
-	results= list(map(len, responses))
+	results= [
+		{"value": x, "alternate":[x+10, x, x-50]} for x in map(len, responses)
+	]
+
 	print("results", results, file=sys.stderr)
 	return jsonify(results)
 

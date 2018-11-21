@@ -1,45 +1,85 @@
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
-
+<script src="static/vendor/jquery/jquery.min.js"></script>
+<script src="static/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jexcel/1.5.7/js/jquery.jexcel.js"></script>
 <script src="static/dropzone.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jexcel/1.5.7/css/jquery.jexcel.css" type="text/css" />
+<link rel="stylesheet" href="static/dropzone.css" type="text/css" />
 <link rel="stylesheet" href="static/loading.css" type="text/css" />
 <link rel="stylesheet" href="static/editor.css" type="text/css" />
+<link href="static/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+<link href="static/simple-sidebar.css" rel="stylesheet">
+
 <body style="font-family:calibri;">
-	<h1>Async Response Loading</h1>
-	<div style="overflow:hidden;">
-		<div style="float:left;">
-			<div id="main-tbl"></div>
-		</div>
-		<div style="overflow:hidden;">
-			<div style="border-style:dotted;height:100px;width:50%">
-				<form action="/upload"
-	      class="dropzone"
-	      id="file-dropzone" method="post"></form>
-			</div>
-			<div>
-				<label>URL Column</label>
-				<select id="url-select"></select>
-			</div>
-			<div>
-				<label>Use Label Column</label>
-				<input id="label-enable" type="checkbox">
-			</div>
-			<div>
-				<label>Label Column</label>
-				<select id="label-select"></select>
-			</div>
-			<button id="load-btn">Load All</button>
-		</div>
-	</div>
+	<div id="wrapper" class="toggled">
+
+        <!-- Sidebar -->
+        <div id="sidebar-wrapper">
+            <ul class="sidebar-nav">
+                <li class="sidebar-brand">
+                    <a href="#">
+                        Mantis UI
+                    </a>
+                </li>
+                <li>
+                    <a href="#">Tester</a>
+                </li>
+                <li>
+                    <a href="#">Docs</a>
+                </li>
+                <li>
+                    <a href="#">GitHub</a>
+                </li>
+            </ul>
+        </div>
+        <!-- /#sidebar-wrapper -->
+
+        <!-- Page Content -->
+        <div id="page-content-wrapper">
+            <div class="container-fluid">
+            <h1 style="padding:10px">Async Response Loading</h1>
+				<div style="overflow:hidden;">
+					<div style="float:left;padding:10px">
+						<div id="main-tbl"></div>
+					</div>
+					<div style="overflow:hidden;float:right;width:25%;padding:10px">
+						<div>
+							<form action="/upload" class="dropzone" id="file-dropzone" method="post">
+							</form>
+						</div>
+						<div>
+							<label>URL Column</label>
+							<select id="url-select" class="form-control"></select>
+						</div>
+						<div>
+							<label>Use Label Column</label>
+							<input id="label-enable" type="checkbox" class="form-control">
+						</div>
+						<div>
+							<label>Label Column</label>
+							<select id="label-select" class="form-control"></select>
+						</div>
+						<button id="load-btn" class="btn btn-secondary">Load All</button>
+					</div>
+				</div>
+            </div>
+        </div>
+        <!-- /#page-content-wrapper -->
+
+    </div>
+    <!-- /#wrapper -->
+	
 </body>
 <footer>
 	<script>
 		// keep target column global
 		var target_col;
 		var headers;
+		var results_container = {
+		};
+
 		var loader = '<div class="lds-facebook"><div></div><div></div><div></div></div>';
 		var ring_loader = '<div class="lds-dual-ring"></div>';
+
 		var handleUpdate = function(obj, cell, val) {
 			var id = $(cell).prop('id').split('-');
 			var c = parseInt(id[0]);
@@ -60,7 +100,9 @@
 				url:'/translate',
 				data: JSON.stringify({"urls": names}),
 				contentType:'application/json', 
-				success:function(response){updateCells(response, target_cells)}
+				success: function(response){
+					updateCells(response, target_cells);
+				}
 			});
 		};
 		var showCellLoading = function(r, c) {
@@ -87,7 +129,6 @@
 			// call for all rows
 			var data = $('#main-tbl').jexcel('getData');
 			source_idx = getUrlIdx();
-			var cells = [];
 			if (target_col==null){
 				target_col = data[0].length;
 				$("#main-tbl").jexcel(
@@ -101,6 +142,7 @@
 				console.log("no target yet, setting new", target_col)
 			};
 			var column_data = getColumnData(data, source_idx);
+			var cells = [];
 			$.each(column_data, function(i){
 				cells.push({'r':i, 'c':target_col});
 			});
@@ -119,10 +161,12 @@
 			}
 			return true;
 		};
+
 		var updateCells = function(values, cells) {
 			data = $('#main-tbl').jexcel('getData');
 			$.each(cells, function(i, cell){
-				data[cell.r][cell.c] = values[i];
+				data[cell.r][cell.c] = values[i]['value'];
+				results_container[cell.r] = values[i];
 			})
 			// update table.
 			$('#main-tbl').jexcel(
@@ -147,10 +191,42 @@
 			});
 		};
 		var closebtn = function(e){
-        	cell = $(e).parent().parent();
+        	cell = $(e).closest('div').parent();
         	console.log(e, this, cell)
         	$('#' + $.fn.jexcel.current).jexcel('closeEditor', $(cell), true);
         };
+
+        var createEditorTable = function(r){
+        	var editor = document.createElement('div');
+			        
+	        $(editor).prop('class', 'dropdown-editor');
+	        var tbl = document.createElement('table');
+	        $(tbl).addClass('table table-dark table-hover table-sm');
+	        var thead = document.createElement('thead');
+	        var hr = document.createElement('tr');
+	        var heads = ["BBID", "Company", "Select"];
+	        for (var i=0; i<3; i++) {
+	        	var th = document.createElement('th');
+	        	th.appendChild(document.createTextNode(heads[i]))
+	        	hr.appendChild(th)
+	        }
+	        thead.appendChild(hr);
+	        tbl.appendChild(thead);
+	        base = "<table class='table table-dark table-sm table-hover'><tr><th>BBID</th><th>Company</th><th>Select</th></tr>"
+	        foot = "</table>"
+
+	        var tbody = document.createElement('tbody')
+	        for (var i=0; i< results_container[r]['alternate'].length; i++) {
+	        	var tr = document.createElement('tr');
+	        	var elem = results_container[r]['alternate'][i];
+	        	$(tr).html("<td>"+elem+"</td><td>Company A</td><td><input type='radio' name='idopts' value='"+elem+"' checked></td><td><input class='btn btn-sm' type='button' value='Select' onclick='closebtn(this);'></td>");
+	        	tbody.appendChild(tr);
+	        }
+	        tbl.appendChild(tbody);
+
+	        editor.appendChild(tbl);
+        	return editor; 
+        }
 		// Example https://bossanova.uk/jexcel/examples/integrating-a-third-party-plugin-into-your-spreadsheet
 		var optionsEditor = {
 		    // Methods
@@ -161,7 +237,7 @@
 		        $(cell).html(value);
 
 		        // Close editior
-		        $(cell).removeClass('editior');
+		        $(cell).removeClass('dropdown-editior');
 
 		        // Save history
 		        return value;
@@ -169,16 +245,15 @@
 		    openEditor : function(cell) {
 		        // Get current content
 		        var html = $(cell).html();
+		        var id = $(cell).prop('id').split('-');
+		        var r = id[1];
 
-		        // Create the editor
-		        var editor = document.createElement('div');
-		        
-		        $(editor).prop('class', 'editor');
-		        $(editor).html("<table><tr><th>BBID</th><th>Company</th><th>Select</th></tr><tr><td>12344</td><td>com-a</td><td><input type='radio' name='idopts' value='12344' checked></td></tr> \
-		        	<tr><td>1235</td><td>com-b</td><td><input name='idopts' type='radio' value='1235'></td></tr> \
-		        	</table><input type='button' value='Close' onclick='closebtn(this);'>");
-		        $(cell).html(editor);
-
+		        console.log('results container', results_container, 'row', cell);
+		        if (results_container[r]['alternate'].length != 1){
+		        	// Create the editor
+			        editor = createEditorTable(r);
+			        $(cell).html(editor);
+		        }
 		    },
 		    getValue : function(cell) {
 		        return $(cell).html();
@@ -209,18 +284,31 @@
 
 		});
 		Dropzone.options.fileDropzone = {
+			maxFiles: 1,
+			accept: function(file, done) {
+			    console.log("uploaded");
+			    done();
+			},
 			init: function() {
+				this.on("addedfile", function() {
+			      if (this.files[1]!=null){
+			        this.removeFile(this.files[0]);
+			      }
+			    });
 				this.on("success", function(file, resp) {
-					console.log("Parsed File:", resp);
-					target_col=null;
-					$('#main-tbl').jexcel({ 
-						data:resp.data,
-						colHeaders:resp.headers,
-						onchange:handleUpdate,
-						colWidths: [ 80, 300, 150 ],
-						allowManualInsertColumn: false
-					});
-					setDropDowns(headers);
+					var r = confirm("Do you want to overrite current data?")
+					if (r==true){
+						console.log("Parsed File:", resp);
+						target_col=null;
+						$('#main-tbl').jexcel({ 
+							data:resp.data,
+							colHeaders:resp.headers,
+							onchange:handleUpdate,
+							colWidths: [ 80, 300, 150 ],
+							allowManualInsertColumn: false
+						});
+						setDropDowns(headers);
+					}
 				})
 			}
 		}

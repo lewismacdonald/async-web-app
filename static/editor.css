@@ -1,15 +1,9 @@
-.editor {
+.dropdown-editor {
+	padding: 0;
 	display: inline-block;
 	position: absolute;
 	overflow:hidden;
-	background-color: white;
-	border: 1px solid gray;
 	min-height: 100px;
 	min-width: 100px;
 	z-index: 50;
-}
-
-.editor > table, th {
-	border: 1px dashed black;
-
 }
