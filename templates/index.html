@@ -71,24 +71,62 @@
 </body>
 <footer>
 	<script>
-		// keep target column global
-		var target_col;
-		var headers;
-		var results_container = {
-		};
+		// keep some global
+		var results_container = {};
 
 		var loader = '<div class="lds-facebook"><div></div><div></div><div></div></div>';
 		var ring_loader = '<div class="lds-dual-ring"></div>';
+		var ACTUAL_COL_NAME = 'Actual';
 
 		var handleUpdate = function(obj, cell, val) {
 			var id = $(cell).prop('id').split('-');
 			var c = parseInt(id[0]);
 			var r = parseInt(id[1]);
 			console.log(obj, cell, val, id);
-			if (c==1) {
-				translate([val], [{'r':r,'c':target_col}])
+			var input_col = getInputCol();
+			var tgt_col = getTargetCol();
+			if (tgt_col.index==-1){
+				createTargetCol();
+			};
+			if (c==input_col.index) {
+				translate([val], [{'r':r,'c':getTargetCol().index}])
 			}
 		};
+		var createTargetCol = function() {
+			var data = $("#main-tbl").jexcel('getData');
+			$("#main-tbl").jexcel(
+				'insertColumn',
+				1,
+				{
+					colHeaders:[ACTUAL_COL_NAME],
+					columns:[{editor:optionsEditor}]
+				}
+			)
+		}
+		var getInputCol = function() {
+			headers = $('#main-tbl').jexcel('getHeaders');
+			name = $('#url-select').find(":selected").text()
+			return {
+				"index": headers.indexOf(name),
+				"name": name
+			}
+		};
+		var getLabelCol = function(){
+			headers = $('#main-tbl').jexcel('getHeaders');
+			name = $('#label-select').find(":selected").text()
+			console.log('label', headers, name);
+			return {
+				"index": headers.indexOf(name),
+				"name": name
+			}
+		}
+		var getTargetCol = function(){
+			headers = $('#main-tbl').jexcel('getHeaders');
+			return {
+				"index": headers.indexOf(ACTUAL_COL_NAME),
+				"name": ACTUAL_COL_NAME
+			}
+		}
 		var translate = function(names, target_cells) {
 			console.log("sending request", JSON.stringify({"urls": names}));
 			$.each(target_cells, function(i, arg){
@@ -117,34 +155,17 @@
 			return data.map(function(row){return row[i]})
 		};
 
-		var getUrlIdx = function(){
-			return parseInt($('#url-select').find(":selected").val())
-		};
-
-		var getLabelIdx = function(){
-			return parseInt($('#label-select').find(":selected").val())
-		}
-
 		var loadAllRows = function() {
 			// call for all rows
 			var data = $('#main-tbl').jexcel('getData');
-			source_idx = getUrlIdx();
-			if (target_col==null){
-				target_col = data[0].length;
-				$("#main-tbl").jexcel(
-					'insertColumn',
-					1,
-					{
-						colHeaders:['Actual'],
-						columns:[{editor:optionsEditor}]
-					}
-				)
-				console.log("no target yet, setting new", target_col)
+			source_idx = getInputCol().index;
+			if (getTargetCol().index==-1){
+				createTargetCol();
 			};
 			var column_data = getColumnData(data, source_idx);
 			var cells = [];
 			$.each(column_data, function(i){
-				cells.push({'r':i, 'c':target_col});
+				cells.push({'r':i, 'c':getTargetCol().index});
 			});
 			response = translate(column_data, cells);
 		} 
@@ -173,11 +194,11 @@
 				'setData',
 				data
 			);
-			label_col = getLabelIdx();
-			actual_col=cells[0].c;
-			console.log('label', label_col, 'actual', actual_col);
+			var label_col = getLabelCol().index;
+			value_col=cells[0].c;
+			console.log('label', label_col, 'actual', value_col);
 			$.each(data, function(i, elem){
-				if (neq(elem[actual_col], elem[label_col])){
+				if (neq(elem[value_col], elem[label_col])){
 					showNotMatch(i);
 				}
 			});
@@ -185,7 +206,7 @@
 		};
 		var setDropDowns = function(headers){
 			$.each(headers, function(i, header){
-				opt = '<option value="'+i.toString()+'">'+header+'</option>';
+				opt = '<option value="'+header+'">'+header+'</option>';
 				$('#url-select').append(opt);
 				$('#label-select').append(opt)
 			});
@@ -267,17 +288,19 @@
 		$('#load-btn').click(function(event) {
 			loadAllRows();
 		});
-
+		var createJEXCEL = function(data, headers) {
+			$('#main-tbl').jexcel({ 
+				data: data,
+				colHeaders: headers,
+				onchange: handleUpdate,
+				colWidths: [ 80, 300, 150 ],
+				allowManualInsertColumn: false
+			});
+		}
 		$(document).ready(function() {
 			
 			$.get('/default_data', function(resp) {
-				$('#main-tbl').jexcel({ 
-					data:resp.data,
-					colHeaders:resp.headers,
-					onchange:handleUpdate,
-					colWidths: [ 80, 300, 150 ],
-					allowManualInsertColumn: false
-				});
+				createJEXCEL(resp.data, resp.headers);
 				setDropDowns(resp.headers);
 				
 			})
@@ -299,15 +322,8 @@
 					var r = confirm("Do you want to overrite current data?")
 					if (r==true){
 						console.log("Parsed File:", resp);
-						target_col=null;
-						$('#main-tbl').jexcel({ 
-							data:resp.data,
-							colHeaders:resp.headers,
-							onchange:handleUpdate,
-							colWidths: [ 80, 300, 150 ],
-							allowManualInsertColumn: false
-						});
-						setDropDowns(headers);
+						createJEXCEL(resp.data, resp.headers)
+						setDropDowns(resp.headers);
 					}
 				})
 			}
